@@ -1,0 +1,27 @@
+Train[,c(3,4,7:10,15)] <- sapply(Train[,c(3,4,7:10,15)], as.character)
+Test[,c(2,3,6:9,14)] <- sapply(Test[,c(2,3,6:9,14)], as.character)
+
+Train$date_sold<-as.Date(Train$date_sold)
+Test$date_sold<-as.Date(Test$date_sold)
+
+
+Train<-separate(Train, "date_sold", c("Year", "Month", "Day"), sep = "-")
+Test<-separate(Test, "date_sold", c("Year", "Month", "Day"), sep = "-")
+
+
+Train <- Train %>% mutate_if(is.character,as.factor)
+Test <- Test %>% mutate_if(is.character,as.factor)
+
+Train$d_year=Train$year_renovated - Train$yr_built
+Test$d_year=Test$year_renovated - Test$yr_built
+
+Year=c(seq(0,100,20),max(Train$d_year))
+Group=c(1:6)
+
+For (i in c(1:6)){
+  Train$d_year<-ifelse(Train$d_year<=Year[i+1] & Train$d_year>Year[i],Group[i],Train$d_year)
+  Test$d_year<-ifelse(Test$d_year<=Year[i+1] & Test$d_year>Year[i],Group[i],Test$d_year)
+}
+
+Train$d_year<-as.factor(Train$d_year)
+Test$d_year<-as.factor(Test$d_year)
