@@ -1,0 +1,58 @@
+continuos_train<-select_if(Train, is.numeric)
+
+mod <- lm(price ~ ., data=continuos_train)
+cooksd <- cooks.distance(mod)
+
+Train<-Train[cooksd< 0.035,]
+
+rec_poly<-recipe(price ~  Month + Day + price + bedrooms + bathrooms + sqft_living + 
+                   sqft_lot + sqft_above+ floors + waterfront + view + condition+ year_renovated + zip_code + lattitude + 
+                   longitude + nn_sqft_living + nn_sqft_lot + d_year,
+                 data = Train) %>%
+  step_poly(sqft_above,sqft_living,sqft_lot,lattitude,longitude,nn_sqft_living,nn_sqft_lot,degree=2)
+
+rec_interact<-rec_poly %>%
+  step_dummy(all_nominal_predictors()) %>% 
+  step_interact( ~ sqft_lot_poly_1:starts_with("zip_code"))%>%
+  step_interact( ~ sqft_lot_poly_1:starts_with("view")) %>%
+  step_interact( ~ lattitude_poly_1:starts_with("zip_code"))%>%
+  step_interact( ~ lattitude_poly_1:starts_with("floors")) %>%
+  step_interact( ~ longitude_poly_1:starts_with("zip_code"))%>%
+  step_interact( ~ longitude_poly_1:starts_with("floors")) %>%
+  step_interact( ~ longitude_poly_1:starts_with("waterfront")) %>%
+  step_interact( ~ nn_sqft_lot_poly_1:starts_with("d_year"))
+
+rec_interact_sl<- rec_interact %>% 
+  step_ns(lattitude_poly_1,longitude_poly_1,sqft_lot_poly_1, deg_free = 20)
+
+lm_model <- linear_reg() %>% set_engine("lm")
+
+lm_wflow <- 
+  workflow() %>% 
+  add_model(lm_model) %>% 
+  add_recipe(rec_interact_sl)
+
+lm_fit <- fit(lm_wflow, Train)
+
+xgboost_model <- 
+  parsnip::boost_tree(
+    mode = "regression",
+    trees = 1000,
+    min_n = 10,
+    tree_depth = 10,
+    learn_rate = 0.02,
+  ) %>%
+  set_engine("xgboost", objective = "reg:squarederror")
+
+xgboost_wf <- 
+  workflows::workflow() %>%
+  add_model(xgboost_model) %>% 
+  add_formula(price ~ .)
+
+xgb_fit <- fit(xgboost_wf, Train)
+
+lm_test_pred <- bind_cols(
+  predict(lm_fit, new_data = Test))
+
+xgb_test_pred<-bind_cols(
+  predict(xgb_fit, new_data = Test))
