@@ -1,3 +1,0 @@
-####Final model####
-
-ensemble<-(lm_test_pred$.pred*0.25+xgb_test_pred$.pred*0.75)
